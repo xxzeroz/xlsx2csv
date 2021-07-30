@@ -12,21 +12,22 @@ import (
 	"io"
 	"log"
 	"os"
+	"strings"
 
 	"github.com/tealeg/xlsx/v3"
 )
 
-func generateCSVFromXLSXFile(w io.Writer, excelFileName string, sheetIndex int, csvOpts csvOptSetter) error {
+func generateCSVFromXLSXFile(w io.Writer, excelFileName string, sheetIndex int, csvOpts csvOptSetter) (string, error) {
 	xlFile, err := xlsx.OpenFile(excelFileName)
 	if err != nil {
-		return err
+		return "",err
 	}
 	sheetLen := len(xlFile.Sheets)
 	switch {
 	case sheetLen == 0:
-		return errors.New("This XLSX file contains no sheets.")
+		return "",errors.New("This XLSX file contains no sheets.")
 	case sheetIndex >= sheetLen:
-		return fmt.Errorf("No sheet %d available, please select a sheet between 0 and %d\n", sheetIndex, sheetLen-1)
+		return "",fmt.Errorf("No sheet %d available, please select a sheet between 0 and %d\n", sheetIndex, sheetLen-1)
 	}
 	cw := csv.NewWriter(w)
 	if csvOpts != nil {
@@ -42,6 +43,7 @@ func generateCSVFromXLSXFile(w io.Writer, excelFileName string, sheetIndex int, 
 				if err != nil {
 					return err
 				}
+				//str = `"`+str+`"`
 				vals = append(vals, str)
 				return nil
 			})
@@ -53,19 +55,19 @@ func generateCSVFromXLSXFile(w io.Writer, excelFileName string, sheetIndex int, 
 		return nil
 	})
 	if err != nil {
-		return err
+		return "",err
 	}
 	cw.Flush()
-	return cw.Error()
+	return "",cw.Error()
 }
 
 type csvOptSetter func(*csv.Writer)
 
 func main() {
 	var (
-		outFile    = flag.String("o", "-", "filename to output to. -=stdout")
+		//outFile    = flag.String("o", "case_mst.csv", "filename to output to. -=stdout")
 		sheetIndex = flag.Int("i", 0, "Index of sheet to convert, zero based")
-		delimiter  = flag.String("d", ";", "Delimiter to use between fields")
+		delimiter  = flag.String("d", "|", "Delimiter to use between fields")
 	)
 	flag.Usage = func() {
 		fmt.Fprintf(os.Stderr, `%s
@@ -84,19 +86,20 @@ Usage:
 		os.Exit(1)
 	}
 	out := os.Stdout
-	if !(*outFile == "" || *outFile == "-") {
+	csv2:= strings.TrimSuffix(flag.Arg(0),".xlsx")+".csv"
+	//if !(*outFile == "" || *outFile == "-") {7
 		var err error
-		if out, err = os.Create(*outFile); err != nil {
+		if out, err = os.Create(csv2); err != nil {
 			log.Fatal(err)
 		}
-	}
+	
 	defer func() {
 		if closeErr := out.Close(); closeErr != nil {
 			log.Fatal(closeErr)
 		}
 	}()
 
-	if err := generateCSVFromXLSXFile(out, flag.Arg(0), *sheetIndex,
+	if _,err := generateCSVFromXLSXFile(out, flag.Arg(0), *sheetIndex,
 		func(cw *csv.Writer) { cw.Comma = ([]rune(*delimiter))[0] },
 	); err != nil {
 		log.Fatal(err)
