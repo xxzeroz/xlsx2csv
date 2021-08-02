@@ -13,6 +13,7 @@ import (
 	"log"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/tealeg/xlsx/v3"
 )
@@ -42,6 +43,14 @@ func generateCSVFromXLSXFile(w io.Writer, excelFileName string, sheetIndex int, 
 				str, err := cell.FormattedValue()
 				if err != nil {
 					return err
+				}
+				chk:= cell.GetNumberFormat()
+				
+				if chk == "mm-dd-yy" {
+					println("Get Date: ",chk,": ",str)
+					t,_ := time.Parse("01-02-06",str)
+					str = t.Format("2/1/2006");
+					println("Convert to: ","d/m/YYYY",": ",str)
 				}
 				//str = `"`+str+`"`
 				vals = append(vals, str)
@@ -91,8 +100,7 @@ Usage:
 		var err error
 		if out, err = os.Create(csv2); err != nil {
 			log.Fatal(err)
-		}
-	
+	}
 	defer func() {
 		if closeErr := out.Close(); closeErr != nil {
 			log.Fatal(closeErr)
@@ -100,8 +108,9 @@ Usage:
 	}()
 
 	if _,err := generateCSVFromXLSXFile(out, flag.Arg(0), *sheetIndex,
-		func(cw *csv.Writer) { cw.Comma = ([]rune(*delimiter))[0] },
+		func(cw *csv.Writer) { cw.Comma = ([]rune(*delimiter))[0]; cw.UseCRLF = true;},
 	); err != nil {
 		log.Fatal(err)
 	}
+	
 }
